@@ -57,6 +57,19 @@ button.sec{background:transparent;color:var(--tx);border:1px solid var(--br)}but
 
   <div id="v-stok" class="card hide">
     <h2>Stok Barang</h2>
+    <div id="e-box" class="hide" style="border:1px solid var(--pri);border-radius:10px;padding:14px;margin-bottom:14px">
+      <b>Edit barang</b>
+      <div class="grid">
+        <div><label>Kode barang</label><input id="e-kode"></div>
+        <div><label>Nama barang</label><input id="e-nama"></div>
+        <div><label>Jumlah barang</label><input id="e-jml" type="number" min="0"></div>
+        <div><label>Harga modal (Rp)</label><input id="e-modal" type="number" min="0"></div>
+        <div><label>Harga jual (Rp)</label><input id="e-jual" type="number" min="0"></div>
+        <div><label>Tanggal input</label><input id="e-tgl" type="date"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px"><button onclick="simpanEdit()">Simpan perubahan</button><button class="sec" onclick="batalEdit()">Batal</button></div>
+      <div id="e-msg" class="msg"></div>
+    </div>
     <div class="tw"><table><thead id="s-h"></thead><tbody id="s-b"></tbody></table></div>
   </div>
 
@@ -72,7 +85,7 @@ button.sec{background:transparent;color:var(--tx);border:1px solid var(--br)}but
     <div style="margin-top:14px"><button onclick="jual()">Simpan penjualan</button></div>
     <div id="j-msg" class="msg"></div>
     <h2 style="margin-top:22px">Riwayat Penjualan</h2>
-    <div class="tw"><table><thead><tr><th>Tanggal</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Harga</th><th>Total</th></tr></thead><tbody id="j-b"></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>Tanggal</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Harga</th><th>Total</th><th></th></tr></thead><tbody id="j-b"></tbody></table></div>
   </div>
 
   <div id="v-hasil" class="card hide">
@@ -132,18 +145,38 @@ function renderStok(){
   var adm=me.role==="admin";
   $("s-h").innerHTML="<tr><th>Kode</th><th>Nama</th><th>Stok</th><th>Modal</th><th>Harga jual</th><th>Tgl input</th>"+(adm?"<th></th>":"")+"</tr>";
   $("s-b").innerHTML=db.items.length?db.items.map(function(x,i){
-    return "<tr><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td"+(x.jumlah<=5?' class="low"':"")+">"+x.jumlah+"</td><td>"+rp(x.modal)+"</td><td>"+rp(x.jual)+"</td><td>"+x.tgl+"</td>"+(adm?'<td><button class="sm sec" onclick="editHarga('+i+')">Edit harga</button></td>':"")+"</tr>"}).join(""):'<tr><td colspan="7" style="color:var(--mut)">Belum ada barang.</td></tr>';
+    return "<tr><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td"+(x.jumlah<=5?' class="low"':"")+">"+x.jumlah+"</td><td>"+rp(x.modal)+"</td><td>"+rp(x.jual)+"</td><td>"+x.tgl+"</td>"+(adm?'<td><button class="sm sec" onclick="editBarang('+i+')">Edit</button> <button class="sm sec" style="color:var(--bad)" onclick="hapusBarang('+i+',this)">Hapus</button></td>':"")+"</tr>"}).join(""):'<tr><td colspan="7" style="color:var(--mut)">Belum ada barang.</td></tr>';
 }
-function editHarga(i){
-  var x=db.items[i],m=prompt("Harga modal untuk "+x.nama+" (Rp):",x.modal);if(m===null)return;
-  var j=prompt("Harga jual untuk "+x.nama+" (Rp):",x.jual);if(j===null)return;
-  if(isNaN(+m)||isNaN(+j)||m===""||j===""||+m<0||+j<0){alert("Harga tidak valid.");return}
-  x.modal=+m;x.jual=+j;save();renderStok();
+var editIdx=-1;
+function editBarang(i){
+  var x=db.items[i];editIdx=i;
+  $("e-kode").value=x.kode;$("e-nama").value=x.nama;$("e-jml").value=x.jumlah;$("e-modal").value=x.modal;$("e-jual").value=x.jual;$("e-tgl").value=x.tgl;
+  $("e-msg").textContent="";$("e-box").classList.remove("hide");$("e-box").scrollIntoView({behavior:"smooth",block:"nearest"});
 }
+function batalEdit(){editIdx=-1;$("e-box").classList.add("hide")}
+function simpanEdit(){
+  var x=db.items[editIdx];if(!x||me.role!=="admin")return;
+  var kode=$("e-kode").value.trim(),nama=$("e-nama").value.trim(),jml=$("e-jml").value,mod=$("e-modal").value,jl=$("e-jual").value;
+  if(!kode||!nama||jml===""||mod===""||jl===""||+jml<0||+mod<0||+jl<0){msg("e-msg","Lengkapi semua data dengan benar.");return}
+  if(db.items.some(function(y,k){return k!==editIdx&&y.kode.toLowerCase()===kode.toLowerCase()})){msg("e-msg","Kode barang sudah dipakai barang lain.");return}
+  x.kode=kode;x.nama=nama;x.jumlah=+jml;x.modal=+mod;x.jual=+jl;x.tgl=$("e-tgl").value||x.tgl;
+  save();batalEdit();renderStok();
+}
+function konfirm(btn,fn){
+  if(btn.dataset.c){fn();return}
+  var t=btn.textContent;btn.dataset.c=1;btn.textContent="Yakin hapus?";
+  setTimeout(function(){delete btn.dataset.c;btn.textContent=t},3000);
+}
+function hapusBarang(i,btn){konfirm(btn,function(){if(me.role!=="admin")return;db.items.splice(i,1);save();batalEdit();renderStok()})}
+function hapusJual(i,btn){konfirm(btn,function(){
+  if(me.role!=="admin")return;var s=db.sales[i];
+  var it=db.items.find(function(x){return x.kode===s.kode});if(it)it.jumlah+=s.jumlah;
+  db.sales.splice(i,1);save();renderJual();
+})}
 function renderJual(){
   var s=$("j-kode");s.innerHTML=db.items.map(function(x){return '<option value="'+esc(x.kode)+'">'+esc(x.kode)+" (stok "+x.jumlah+")</option>"}).join("");
   if(!$("j-tgl").value)$("j-tgl").value=today();fillJual();
-  $("j-b").innerHTML=db.sales.slice().reverse().map(function(x){return "<tr><td>"+x.tgl+"</td><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td>"+x.jumlah+"</td><td>"+rp(x.harga)+"</td><td>"+rp(x.jumlah*x.harga)+"</td></tr>"}).join("")||'<tr><td colspan="6" style="color:var(--mut)">Belum ada penjualan.</td></tr>';
+  $("j-b").innerHTML=db.sales.slice().reverse().map(function(x){return "<tr><td>"+x.tgl+"</td><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td>"+x.jumlah+"</td><td>"+rp(x.harga)+"</td><td>"+rp(x.jumlah*x.harga)+"</td><td>"+(me.role==="admin"?'<button class="sm sec" style="color:var(--bad)" onclick="hapusJual('+db.sales.indexOf(x)+',this)">Hapus</button>':"")+"</td></tr>"}).join("")||'<tr><td colspan="7" style="color:var(--mut)">Belum ada penjualan.</td></tr>';
 }
 function fillJual(){
   var it=db.items.find(function(x){return x.kode===$("j-kode").value});
