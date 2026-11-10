@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kasir & Warehouse Toko</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#1d2733;--mut:#6b7885;--br:#dde3ea;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111821;--card:#1a2431;--tx:#e8edf2;--mut:#93a1b0;--br:#2c394a;--pri:#4f8bff}}
+:root[data-theme="dark"]{--bg:#111821;--card:#1a2431;--tx:#e8edf2;--mut:#93a1b0;--br:#2c394a;--pri:#4f8bff}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--br);border-radius:12px;padding:18px;margin-bottom:16px}
+h1,h2{margin:0 0 12px}h1{font-size:22px}h2{font-size:18px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,select{width:100%;padding:10px;border:1px solid var(--br);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+input[readonly]{opacity:.7}
+button{padding:10px 16px;border:0;border-radius:8px;background:var(--pri);color:#fff;font:inherit;cursor:pointer}
+button.sec{background:transparent;color:var(--tx);border:1px solid var(--br)}button.sm{padding:5px 10px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 14px}
+.nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.nav .sp{flex:1}
+.nav button.on{background:var(--pri);color:#fff}.nav button:not(.on){background:var(--card);color:var(--tx);border:1px solid var(--br)}
+.tw{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:8px 10px;border-bottom:1px solid var(--br);text-align:left;white-space:nowrap}th{color:var(--mut);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.stat{border:1px solid var(--br);border-radius:10px;padding:14px}.stat b{display:block;font-size:22px}.stat span{color:var(--mut);font-size:13px}
+.msg{margin-top:10px;font-size:14px}.err{color:var(--bad)}.good{color:var(--ok)}.low{color:var(--bad);font-weight:600}.hide{display:none}
+.login{max-width:380px;margin:8vh auto}.hint{font-size:12px;color:var(--mut);margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div id="login" class="card login">
+  <h1>Kasir & Warehouse</h1>
+  <label>Username</label><input id="u" autocomplete="username">
+  <label>Password</label><input id="p" type="password" autocomplete="current-password">
+  <div style="margin-top:14px"><button onclick="doLogin()" style="width:100%">Masuk</button></div>
+  <div id="lmsg" class="msg err"></div>
+  <div class="hint">Akun contoh: admin / admin123 &nbsp;•&nbsp; karyawan / karyawan123</div>
+</div>
+
+<div id="app" class="hide">
+  <div class="nav" id="nav"></div>
+
+  <div id="v-input" class="card hide">
+    <h2>Input Barang</h2>
+    <div class="grid">
+      <div><label>Kode barang</label><input id="i-kode"></div>
+      <div><label>Nama barang</label><input id="i-nama"></div>
+      <div><label>Jumlah barang</label><input id="i-jml" type="number" min="1"></div>
+      <div><label>Harga barang / modal (Rp)</label><input id="i-modal" type="number" min="0"></div>
+      <div><label>Harga jual (Rp, opsional)</label><input id="i-jual" type="number" min="0"></div>
+      <div><label>Tanggal penginputan</label><input id="i-tgl" type="date"></div>
+    </div>
+    <div style="margin-top:14px"><button onclick="inputBarang()">Simpan barang</button></div>
+    <div id="i-msg" class="msg"></div>
+    <div class="hint">Jika kode sudah ada, jumlah akan ditambahkan ke stok. Harga jual kosong = modal + 20%.</div>
+  </div>
+
+  <div id="v-stok" class="card hide">
+    <h2>Stok Barang</h2>
+    <div class="tw"><table><thead id="s-h"></thead><tbody id="s-b"></tbody></table></div>
+  </div>
+
+  <div id="v-jual" class="card hide">
+    <h2>Penjualan</h2>
+    <div class="grid">
+      <div><label>Kode barang</label><select id="j-kode" onchange="fillJual()"></select></div>
+      <div><label>Nama barang</label><input id="j-nama" readonly></div>
+      <div><label>Jumlah barang</label><input id="j-jml" type="number" min="1" value="1"></div>
+      <div><label>Harga barang (Rp)</label><input id="j-harga" readonly></div>
+      <div><label>Tanggal jual</label><input id="j-tgl" type="date"></div>
+    </div>
+    <div style="margin-top:14px"><button onclick="jual()">Simpan penjualan</button></div>
+    <div id="j-msg" class="msg"></div>
+    <h2 style="margin-top:22px">Riwayat Penjualan</h2>
+    <div class="tw"><table><thead><tr><th>Tanggal</th><th>Kode</th><th>Nama</th><th>Jumlah</th><th>Harga</th><th>Total</th></tr></thead><tbody id="j-b"></tbody></table></div>
+  </div>
+
+  <div id="v-hasil" class="card hide">
+    <h2>Hasil Keseluruhan Penjualan</h2>
+    <div class="stats">
+      <div class="stat"><span>Modal (harga pokok terjual)</span><b id="h-modal"></b></div>
+      <div class="stat"><span>Omset</span><b id="h-omset"></b></div>
+      <div class="stat"><span>Keuntungan</span><b id="h-untung"></b></div>
+    </div>
+    <div class="hint" style="margin-top:12px">Keuntungan = Omset − Modal. Modal dihitung dari harga modal barang yang terjual.</div>
+  </div>
+</div>
+</div>
+
+<script>
+var KEY="kasir_wh_v1",USERS={admin:{p:"admin123",role:"admin"},karyawan:{p:"karyawan123",role:"karyawan"}};
+var db={items:[],sales:[]},me=null,tab="input";
+try{var r=localStorage.getItem(KEY);if(r)db=JSON.parse(r)}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function rp(n){return "Rp "+Math.round(n).toLocaleString("id-ID")}
+function today(){return new Date().toISOString().slice(0,10)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function msg(id,t,ok){var e=$(id);e.textContent=t;e.className="msg "+(ok?"good":"err")}
+
+function doLogin(){
+  var u=$("u").value.trim().toLowerCase(),p=$("p").value,a=USERS[u];
+  if(!a||a.p!==p){$("lmsg").textContent="Username atau password salah.";return}
+  me={name:u,role:a.role};$("lmsg").textContent="";$("p").value="";
+  $("login").classList.add("hide");$("app").classList.remove("hide");tab="input";render();
+}
+function logout(){me=null;$("app").classList.add("hide");$("login").classList.remove("hide")}
+function menus(){
+  var m=[["input","Input Barang"],["stok","Stok"],["jual","Penjualan"]];
+  if(me.role==="admin")m.push(["hasil","Hasil Penjualan"]);return m;
+}
+function render(){
+  var n=$("nav");n.innerHTML="";
+  menus().forEach(function(m){var b=document.createElement("button");b.textContent=m[1];b.className=tab===m[0]?"on":"";b.onclick=function(){tab=m[0];render()};n.appendChild(b)});
+  var sp=document.createElement("span");sp.className="sp";n.appendChild(sp);
+  var w=document.createElement("span");w.style.color="var(--mut)";w.textContent=me.name+" ("+me.role+")";n.appendChild(w);
+  var lo=document.createElement("button");lo.className="sec";lo.textContent="Keluar";lo.onclick=logout;n.appendChild(lo);
+  ["input","stok","jual","hasil"].forEach(function(t){$("v-"+t).classList.toggle("hide",t!==tab)});
+  if(tab==="input"&&!$("i-tgl").value)$("i-tgl").value=today();
+  if(tab==="stok")renderStok();if(tab==="jual")renderJual();if(tab==="hasil")renderHasil();
+}
+function inputBarang(){
+  var kode=$("i-kode").value.trim(),nama=$("i-nama").value.trim(),jml=+$("i-jml").value,modal=+$("i-modal").value,jual=$("i-jual").value,tgl=$("i-tgl").value||today();
+  if(!kode||!nama||!(jml>0)||!(modal>=0)||$("i-modal").value===""){msg("i-msg","Lengkapi semua data dengan benar.");return}
+  var it=db.items.find(function(x){return x.kode.toLowerCase()===kode.toLowerCase()});
+  if(it){it.jumlah+=jml;it.modal=modal;it.tgl=tgl;if(me.role==="admin"&&jual!=="")it.jual=+jual}
+  else db.items.push({kode:kode,nama:nama,jumlah:jml,modal:modal,jual:jual!==""?+jual:Math.round(modal*1.2),tgl:tgl});
+  save();["i-kode","i-nama","i-jml","i-modal","i-jual"].forEach(function(i){$(i).value=""});
+  msg("i-msg","Barang tersimpan.",true);
+}
+function renderStok(){
+  var adm=me.role==="admin";
+  $("s-h").innerHTML="<tr><th>Kode</th><th>Nama</th><th>Stok</th><th>Modal</th><th>Harga jual</th><th>Tgl input</th>"+(adm?"<th></th>":"")+"</tr>";
+  $("s-b").innerHTML=db.items.length?db.items.map(function(x,i){
+    return "<tr><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td"+(x.jumlah<=5?' class="low"':"")+">"+x.jumlah+"</td><td>"+rp(x.modal)+"</td><td>"+rp(x.jual)+"</td><td>"+x.tgl+"</td>"+(adm?'<td><button class="sm sec" onclick="editHarga('+i+')">Edit harga</button></td>':"")+"</tr>"}).join(""):'<tr><td colspan="7" style="color:var(--mut)">Belum ada barang.</td></tr>';
+}
+function editHarga(i){
+  var x=db.items[i],m=prompt("Harga modal untuk "+x.nama+" (Rp):",x.modal);if(m===null)return;
+  var j=prompt("Harga jual untuk "+x.nama+" (Rp):",x.jual);if(j===null)return;
+  if(isNaN(+m)||isNaN(+j)||m===""||j===""||+m<0||+j<0){alert("Harga tidak valid.");return}
+  x.modal=+m;x.jual=+j;save();renderStok();
+}
+function renderJual(){
+  var s=$("j-kode");s.innerHTML=db.items.map(function(x){return '<option value="'+esc(x.kode)+'">'+esc(x.kode)+" (stok "+x.jumlah+")</option>"}).join("");
+  if(!$("j-tgl").value)$("j-tgl").value=today();fillJual();
+  $("j-b").innerHTML=db.sales.slice().reverse().map(function(x){return "<tr><td>"+x.tgl+"</td><td>"+esc(x.kode)+"</td><td>"+esc(x.nama)+"</td><td>"+x.jumlah+"</td><td>"+rp(x.harga)+"</td><td>"+rp(x.jumlah*x.harga)+"</td></tr>"}).join("")||'<tr><td colspan="6" style="color:var(--mut)">Belum ada penjualan.</td></tr>';
+}
+function fillJual(){
+  var it=db.items.find(function(x){return x.kode===$("j-kode").value});
+  $("j-nama").value=it?it.nama:"";$("j-harga").value=it?it.jual:"";
+}
+function jual(){
+  var it=db.items.find(function(x){return x.kode===$("j-kode").value}),jml=+$("j-jml").value,tgl=$("j-tgl").value||today();
+  if(!it){msg("j-msg","Pilih barang terlebih dahulu.");return}
+  if(!(jml>0)){msg("j-msg","Jumlah tidak valid.");return}
+  if(jml>it.jumlah){msg("j-msg","Stok tidak cukup (tersisa "+it.jumlah+").");return}
+  it.jumlah-=jml;db.sales.push({kode:it.kode,nama:it.nama,jumlah:jml,harga:it.jual,modal:it.modal,tgl:tgl});save();
+  $("j-jml").value=1;renderJual();msg("j-msg","Penjualan tersimpan.",true);
+}
+function renderHasil(){
+  var m=0,o=0;db.sales.forEach(function(x){m+=x.jumlah*x.modal;o+=x.jumlah*x.harga});
+  $("h-modal").textContent=rp(m);$("h-omset").textContent=rp(o);
+  var u=$("h-untung");u.textContent=rp(o-m);u.style.color=o-m>=0?"var(--ok)":"var(--bad)";
+}
+$("p").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
+</script>
+</body>
+</html>
